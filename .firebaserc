@@ -1,0 +1,10 @@
+{
+  "projects": {
+    "default": "checkin-sytem",
+    "checkin": "checkin-sytem",
+    "new-site": "checkin-sytem",
+    "yes": "checkin-sytem"
+  },
+  "targets": {},
+  "etags": {}
+}
