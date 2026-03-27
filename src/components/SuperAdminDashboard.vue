@@ -764,6 +764,7 @@ Or: customer1@example.com, customer2@example.com"
               class="border rounded px-3 py-2 w-full"
             >
               <option value="custom">Custom Email</option>
+              <option value="new_tenant_welcome">1 New Tenant Welcome</option>
               <option value="maintenance">Maintenance / Access Notice</option>
               <option value="lostfound">Lost & Found</option>
               <option value="latecheckout">Late Checkout / Stay Extension</option>
@@ -772,6 +773,15 @@ Or: customer1@example.com, customer2@example.com"
               <option value="review">Review Request</option>
               <option value="referral">Referral Program</option>
               <option value="rebook">Rebooking Invitation</option>
+              <option value="house_compound">2 House & Compound Instructions</option>
+              <option value="utilities_hygiene">3 Utilities & Hygiene</option>
+              <option value="rent_reminder">4 Rent Payment Reminder</option>
+              <option value="tenant_referral">5 Tenant Referral Program</option>
+              <option value="delegates_invite">6 Invite for Delegates & Speakers</option>
+              <option value="team_recommendations">8 Recommendations for Teams</option>
+              <option value="fan_club_recommendations">7 Recommendations for Fan Clubs</option>
+              <option value="formal_cooperation">9 Formal International Cooperation Proposal</option>
+              <option value="move_out_instructions">10 Move Out Instructions</option>
             </select>
           </div>
           <div>
@@ -958,6 +968,126 @@ Or: customer1@example.com, customer2@example.com"
         <p class="text-sm text-gray-600 mb-3">Invite guests to book again with special offers.</p>
         <button 
           @click="useTemplate('rebook')"
+          class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+        >
+          Use Template
+        </button>
+      </div>
+
+      <!-- Template 1: New Tenant Welcome -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <h4 class="font-medium mb-2">👋 1 New Tenant Welcome</h4>
+        <p class="text-sm text-gray-600 mb-3">Send a welcome message to new tenants.</p>
+        <button 
+          @click="useTemplate('new_tenant_welcome')"
+          class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+        >
+          Use Template
+        </button>
+      </div>
+
+      <!-- Template 2: House & Compound Instructions -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <h4 class="font-medium mb-2">🏠 2 House & Compound Instructions</h4>
+        <p class="text-sm text-gray-600 mb-3">Send house and compound guidelines to tenants.</p>
+        <button 
+          @click="useTemplate('house_compound')"
+          class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+        >
+          Use Template
+        </button>
+      </div>
+
+      <!-- Template 3: Utilities & Hygiene -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <h4 class="font-medium mb-2">✨ 3 Utilities & Hygiene</h4>
+        <p class="text-sm text-gray-600 mb-3">Instruct tenants regarding utilities and hygiene guidelines.</p>
+        <button 
+          @click="useTemplate('utilities_hygiene')"
+          class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+        >
+          Use Template
+        </button>
+      </div>
+
+      <!-- Template 4: Rent Payment Reminder -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <h4 class="font-medium mb-2">💰 4 Rent Payment Reminder</h4>
+        <p class="text-sm text-gray-600 mb-3">Remind tenants about upcoming rent due dates.</p>
+        <button 
+          @click="useTemplate('rent_reminder')"
+          class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+        >
+          Use Template
+        </button>
+      </div>
+
+      <!-- Template 5: Tenant Referral Program -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <h4 class="font-medium mb-2">🎁 5 Tenant Referral Program</h4>
+        <p class="text-sm text-gray-600 mb-3">Invite tenants to refer others and earn rewards.</p>
+        <button 
+          @click="useTemplate('tenant_referral')"
+          class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+        >
+          Use Template
+        </button>
+      </div>
+
+      <!-- Template 6: Invite for Delegates & Speakers -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <h4 class="font-medium mb-2">🌍 6 Invite for Delegates & Speakers</h4>
+        <p class="text-sm text-gray-600 mb-3">Accommodation invitation for event delegates and speakers.</p>
+        <button 
+          @click="useTemplate('delegates_invite')"
+          class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+        >
+          Use Template
+        </button>
+      </div>
+
+      <!-- Template 9: Recommendations for Teams -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <h4 class="font-medium mb-2">🏆 8 Recommendations for Teams</h4>
+        <p class="text-sm text-gray-600 mb-3">Accommodation and logistics support for sports teams.</p>
+        <button 
+          @click="useTemplate('team_recommendations')"
+          class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+        >
+          Use Template
+        </button>
+      </div>
+
+      <!-- Template 10: Recommendations for Fan Clubs -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <h4 class="font-medium mb-2">⚽️ 7 Recommendations for Fan Clubs</h4>
+        <p class="text-sm text-gray-600 mb-3">Travel and stay solutions for fan clubs and supporters.</p>
+        <button 
+          @click="useTemplate('fan_club_recommendations')"
+          class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+        >
+          Use Template
+        </button>
+      </div>
+
+      <!-- Template 11: Formal Cooperation Proposal -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <h4 class="font-medium mb-2">🌐 9 Formal International Cooperation Proposal</h4>
+        <p class="text-sm text-gray-600 mb-3">Partnership proposal for delegate accommodation.</p>
+        <button 
+          @click="useTemplate('formal_cooperation')"
+          class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+        >
+          Use Template
+        </button>
+      </div>
+
+      <!-- Template 12: Move Out Instructions -->
+      <div class="bg-white rounded-lg shadow p-4">
+        <h4 class="font-medium mb-2">📦 10 Move Out Instructions</h4>
+        <p class="text-sm text-gray-600 mb-3">Provide instructions to the tenant on how to move out properly.</p>
+        <button 
+          @click="useTemplate('move_out_instructions')"
           class="text-blue-600 hover:text-blue-800 text-sm font-medium"
         >
           Use Template
@@ -1173,6 +1303,21 @@ const useTemplate = (templateType) => {
 
 const applyTemplate = () => {
   const templates = {
+    new_tenant_welcome: {
+      subject: 'Welcome to {{PropertyName}}!',
+      body: `This is an automated welcome email. 
+The actual email content requires no further input and will be generated beautifully by the system, welcoming the tenant.`
+    },
+    utilities_hygiene: {
+      subject: 'Utilities & Hygiene at {{PropertyName}}',
+      body: `This is an automated instructions email.
+The actual email content will be generated by the system, instructing the tenant regarding utilities and hygiene.`
+    },
+    move_out_instructions: {
+      subject: 'Move Out Instructions for {{PropertyName}}',
+      body: `This is an automated move-out email.
+The actual email content will provide instructions to the tenant on how to move out properly.`
+    },
     maintenance: {
       subject: 'Temporary access notice – {{PropertyName}}',
       body: `Dear {{GuestName}},
@@ -1333,6 +1478,142 @@ https://wa.me/{{PropertyWhatsApp}}
 
 Warm regards,  
 **{{PropertyName}} Management**`
+    },
+    team_recommendations: {
+      subject: 'Accommodation & Logistics Support for {{TeamName}}',
+      body: `Dear {{TeamManager}},
+
+Bookello provides complete accommodation solutions for teams visiting {{City}}.
+
+Options include:
+
+- Private luxury residences
+- Secure serviced apartments
+- Team transport coordination
+- Long-stay discounts
+
+We ensure privacy, security, and comfort for athletes and staff.
+
+We welcome partnership discussions.`
+    },
+    fan_club_recommendations: {
+      subject: 'Travel & Stay Solutions for {{TeamOrEventName}} Fans',
+      body: `Dear {{FanClubName}},
+
+Are your members traveling for {{MatchOrEvent}}?
+
+Bookello offers:
+
+- Group apartments
+- Budget rooms for supporters
+- Shuttle transport
+- City tour packages
+
+We can organize complete fan travel coordination.
+
+Contact us for group packages.`
+    },
+    formal_cooperation: {
+      subject: 'Proposal for Delegate Accommodation Partnership',
+      body: `Dear {{OrganizationName}},
+
+We are pleased to propose a collaboration with your organization to support accommodation and logistics for your delegates, staff, and international visitors in {{CityOrCountry}}.
+
+Bookello provides:
+
+- Affordable housing solutions
+- Executive apartments
+- Long-stay corporate rentals
+- Airport transfers
+- Event travel coordination
+
+We offer negotiated corporate rates and dedicated support teams.
+
+We would be honored to discuss structured cooperation for upcoming programs and events.
+
+Kind regards,
+Bookello Management`
+    },
+    house_compound: {
+      subject: 'Important House & Compound Guidelines – {{PropertyName}}',
+      body: `Dear {{TenantName}},
+
+To ensure a peaceful and well-maintained living environment, please take note of the following guidelines:
+
+🏠 Inside the House:
+- No structural modifications without approval
+- Report maintenance issues immediately
+- Avoid water leakage and electricity misuse
+
+🌿 Compound Rules:
+- Respect quiet hours (10PM – 6AM)
+- Keep shared spaces clean
+- No unauthorized subletting
+- Parking only in designated areas
+
+These guidelines help protect your comfort and the property's value.
+
+Thank you for your cooperation.
+
+Management Team
+Check-In by Bookello`
+    },
+    tenant_referral: {
+      subject: 'Earn Rewards – Refer a Tenant & Get Paid',
+      body: `Dear {{TenantName}},
+
+We value trusted tenants like you.
+
+Refer a friend, colleague, or family member to rent with us and receive:
+
+💵 {{ReferralRewardAmount}} once the lease is signed.
+
+Conditions:
+- Referral must sign minimum {{LeasePeriod}}
+- Reward paid after first month rent
+
+To refer someone, simply reply with their name and contact.
+
+Thank you for being part of our community.`
+    },
+    delegates_invite: {
+      subject: 'Attending {{EventName}} in {{City}}? Secure Your Stay',
+      body: `Dear {{Name}},
+
+If you are attending {{EventName}} in {{City}}, Bookello provides:
+
+🏨 Verified hotels & serviced apartments
+🚗 Airport transfers
+🌍 Tours & local experiences
+
+We support delegates, speakers, NGOs, and international organizations with affordable to executive accommodation options.
+
+Explore available options:
+👉 marketplace.bookello.life
+
+Secure your stay early to avoid last-minute price increases.
+
+Best regards,
+Bookello Team`
+    },
+    rent_reminder: {
+      subject: 'Friendly Reminder – Rent Due {{DueDate}}',
+      body: `Dear {{TenantName}},
+
+This is a reminder that your monthly rent for {{PropertyName}} is due on:
+
+📅 {{DueDate}}
+💰 {{Amount}}
+
+Bank Details:
+{{BankName}}
+{{AccountNumber}}
+
+Timely payment helps us maintain high service standards.
+
+If already paid, kindly ignore this message.
+
+Thank you.`
     }
   }
 
@@ -1484,23 +1765,61 @@ const sendBulkEmail = async () => {
       }))
     }
     
-    // Call Firebase Function to send emails
-    const sendEmailFunction = httpsCallable(functions, 'sendCustomBulkEmail')
-    const result = await sendEmailFunction({
-      hotelId: currentHotelId,
-      propertyName: hotelData.name,
-      propertyWhatsApp: hotelData.whatsappNumber || '',
-      recipients: recipients,
-      customEmailAddresses: customEmailAddresses, // Send custom emails separately
-      subject: emailForm.value.subject,
-      body: emailForm.value.body,
-      template: emailForm.value.template
-    })
+    // Determine which Firebase function to call
+    let totalSent = 0;
     
-    // Save to email history
-    await saveEmailHistory(result.data, recipients.length + customEmailAddresses.length)
-    
-    alert(`Emails sent successfully to ${result.data.total} recipients`)
+    if (['new_tenant_welcome', 'utilities_hygiene', 'move_out_instructions'].includes(emailForm.value.template)) {
+      if (customEmailAddresses.length > 0) {
+        alert('Custom email addresses cannot be used with automated templates (needs valid checkin properties). Please select individual checked-in guests.');
+        sendingEmail.value = false;
+        return;
+      }
+      
+      let functionName = '';
+      if (emailForm.value.template === 'new_tenant_welcome') functionName = 'sendNewTenantWelcomeEmail';
+      else if (emailForm.value.template === 'utilities_hygiene') functionName = 'sendUtilitiesAndHygieneInstructions';
+      else if (emailForm.value.template === 'move_out_instructions') functionName = 'sendMoveOutInstructions';
+      
+      const specificEmailFunction = httpsCallable(functions, functionName);
+      
+      for (const r of recipients) {
+        if (!r.checkinId) continue;
+        await specificEmailFunction({
+          checkinId: r.checkinId,
+          guestEmail: r.email,
+          guestName: r.name,
+          hotelName: hotelData.name
+        });
+        totalSent++;
+      }
+      
+      await saveEmailHistory({
+        successCount: totalSent,
+        failureCount: recipients.length - totalSent,
+        total: recipients.length
+      }, totalSent);
+      
+      alert(`Automated emails targeted to ${totalSent} recipients successfully`);
+    } else {
+      // Call Firebase Function for bulk email
+      const sendEmailFunction = httpsCallable(functions, 'sendCustomBulkEmail')
+      const result = await sendEmailFunction({
+        hotelId: currentHotelId,
+        propertyName: hotelData.name,
+        propertyWhatsApp: hotelData.whatsappNumber || '',
+        recipients: recipients,
+        customEmailAddresses: customEmailAddresses, // Send custom emails separately
+        subject: emailForm.value.subject,
+        body: emailForm.value.body,
+        template: emailForm.value.template
+      })
+      
+      totalSent = result.data.total;
+      // Save to email history
+      await saveEmailHistory(result.data, recipients.length + customEmailAddresses.length)
+      
+      alert(`Emails sent successfully to ${totalSent} recipients`)
+    }
     showNewEmailModal.value = false
     
     // Reset form

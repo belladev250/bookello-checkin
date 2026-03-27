@@ -1768,8 +1768,12 @@ const getInvoiceStatusText = (status) => {
 }
 
 // Updated approveApplication method for your Vue admin dashboard
+const processingApprovals = ref(new Set())
 
 const approveApplication = async (registrationId) => {
+  if (processingApprovals.value.has(registrationId)) return
+  processingApprovals.value.add(registrationId)
+  
   try {
     const regRef = doc(db, 'registrations', registrationId)
     const regDoc = await getDoc(regRef)
@@ -1858,6 +1862,8 @@ The property owner will receive a confirmation email shortly.`)
   } catch (error) {
     console.error('Approval error:', error)
     alert('Error: ' + error.message)
+  } finally {
+    processingApprovals.value.delete(registrationId)
   }
 }
 
@@ -2349,16 +2355,10 @@ const executeBulkDelete = async () => {
       // Add property deletion promise
       deletePromises.push(deleteDoc(doc(db, 'Hotels', property.id)))
       
-      // Find and delete registrations for this property
-      const registrationsQuery = query(
-        collection(db, 'registrations'), 
-        where('ownerEmail', '==', property.ownerEmail)
-      )
-      const registrationsSnap = await getDocs(registrationsQuery)
-      
-      registrationsSnap.docs.forEach(doc => {
-        deletePromises.push(deleteDoc(doc.ref))
-      })
+      // Find and delete exact registration for this property
+      if (property.registrationId) {
+        deletePromises.push(deleteDoc(doc(db, 'registrations', property.registrationId)))
+      }
       
       // Create deletion record
       deletePromises.push(
@@ -2977,17 +2977,14 @@ const deleteProperty = async (propertyId) => {
     // 1. Delete the property from Firestore
     await deleteDoc(doc(db, 'Hotels', propertyId))
     
-    // 2. Also delete any pending applications for this property
-    const registrationsQuery = query(
-      collection(db, 'registrations'), 
-      where('ownerEmail', '==', property.ownerEmail)
-    )
-    const registrationsSnap = await getDocs(registrationsQuery)
-    
-    const deletePromises = registrationsSnap.docs.map(doc => 
-      deleteDoc(doc.ref)
-    )
-    await Promise.all(deletePromises)
+    // 2. Also delete the exact pending application for this property
+    if (property.registrationId) {
+      const regDocRef = doc(db, 'registrations', property.registrationId);
+      const regSnapshot = await getDoc(regDocRef);
+      if (regSnapshot.exists()) {
+        await deleteDoc(regDocRef);
+      }
+    }
     
     // 3. Create deletion record
     await setDoc(doc(db, 'deleted_properties', propertyId), {

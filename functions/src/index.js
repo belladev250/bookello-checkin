@@ -8,13 +8,26 @@ import { ServerClient } from 'postmark';
 
 initializeApp();
 const db = getFirestore();
-const postmarkClient = new ServerClient("417936d6-f508-4fcf-8060-faaf1654941f");
+let _postmarkClient;
+const getPostmarkClient = () => {
+  if (!_postmarkClient) {
+    const token = process.env.POSTMARK_API_TOKEN;
+    if (!token) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('POSTMARK_API_TOKEN is missing in production. Ensure secrets are bound.');
+      }
+      console.warn('⚠️ POSTMARK_API_TOKEN is missing. Using a dummy token for local development/analysis.');
+    }
+    _postmarkClient = new ServerClient((token || "DEVELOPMENT_TOKEN").trim());
+  }
+  return _postmarkClient;
+};
 
 // ====================
 // 1. REGISTRATION EMAIL (Firestore Trigger)
 // ====================
 export const sendRegistrationEmail = onDocumentCreated(
-  'registrations/{hotelId}',
+  { document: 'registrations/{hotelId}', secrets: ["POSTMARK_API_TOKEN"], memory: "128Mi", maxInstances: 10 },
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
@@ -32,7 +45,7 @@ export const sendRegistrationEmail = onDocumentCreated(
     }
 
     try {
-      const response = await postmarkClient.sendEmail({
+      const response = await getPostmarkClient().sendEmail({
         From: 'checkin@bookello.life',
         To: registrationData.ownerEmail,
         Subject: 'Property Registration Received – Under Review',
@@ -100,7 +113,7 @@ export const sendRegistrationEmail = onDocumentCreated(
       return { success: true, messageId: response.MessageID };
     } catch (error) {
       console.error('❌ Error sending registration email:', error);
-      
+
       // Log error to Firestore for debugging
       await db.collection('emailErrors').add({
         hotelId,
@@ -108,7 +121,7 @@ export const sendRegistrationEmail = onDocumentCreated(
         error: error.message,
         timestamp: new Date()
       });
-      
+
       throw new Error(`Failed to send registration email: ${error.message}`);
     }
   }
@@ -120,7 +133,7 @@ export const sendRegistrationEmail = onDocumentCreated(
 // 2. GUEST CHECK-IN CONFIRMATION EMAIL
 // ====================
 export const sendGuestCheckinConfirmation = onDocumentCreated(
-  'Checkins/{checkinId}',
+  { document: 'Checkins/{checkinId}', secrets: ["POSTMARK_API_TOKEN"], memory: "128Mi", maxInstances: 10 },
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
@@ -139,7 +152,7 @@ export const sendGuestCheckinConfirmation = onDocumentCreated(
 
     try {
       // Send email to guest
-      const response = await postmarkClient.sendEmail({
+      const response = await getPostmarkClient().sendEmail({
         From: 'checkin@bookello.life',
         To: checkinData.email,
         Subject: `Check-In Completed – ${checkinData.hotel}`,
@@ -184,22 +197,22 @@ export const sendGuestCheckinConfirmation = onDocumentCreated(
                 
                 <div class="detail-row">
                   <div class="detail-label">Check-in Date:</div>
-                  <div class="detail-value">${new Date(checkinData.checkInDate).toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}</div>
+                  <div class="detail-value">${new Date(checkinData.checkInDate).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })}</div>
                 </div>
                 
                 <div class="detail-row">
                   <div class="detail-label">Check-out Date:</div>
-                  <div class="detail-value">${new Date(checkinData.checkOutDate).toLocaleDateString('en-US', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}</div>
+                  <div class="detail-value">${new Date(checkinData.checkOutDate).toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        })}</div>
                 </div>
               </div>
               
@@ -236,7 +249,7 @@ export const sendGuestCheckinConfirmation = onDocumentCreated(
       return { success: true, messageId: response.MessageID };
     } catch (error) {
       console.error('❌ Error sending guest check-in confirmation:', error);
-      
+
       // Log error to Firestore for debugging
       await db.collection('emailErrors').add({
         checkinId,
@@ -244,7 +257,7 @@ export const sendGuestCheckinConfirmation = onDocumentCreated(
         error: error.message,
         timestamp: new Date()
       });
-      
+
       throw new Error(`Failed to send guest check-in confirmation: ${error.message}`);
     }
   }
@@ -255,7 +268,7 @@ export const sendGuestCheckinConfirmation = onDocumentCreated(
 // 3. PROVIDER CHECK-IN NOTIFICATION EMAIL - FIXED
 // ====================
 export const sendProviderCheckinNotification = onDocumentCreated(
-  'Checkins/{checkinId}',
+  { document: 'Checkins/{checkinId}', secrets: ["POSTMARK_API_TOKEN"], memory: "128Mi", maxInstances: 10 },
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
@@ -290,7 +303,7 @@ export const sendProviderCheckinNotification = onDocumentCreated(
       }
 
       const hotelDoc = await db.collection('Hotels').doc(checkinData.hotelId).get();
-      
+
       // FIXED: Use .exists property (not .exists() method)
       if (!hotelDoc.exists) {
         console.error('❌ Hotel not found for ID:', checkinData.hotelId);
@@ -300,10 +313,10 @@ export const sendProviderCheckinNotification = onDocumentCreated(
         });
         return;
       }
-      
+
       const hotelData = hotelDoc.data();
       console.log('🏨 Hotel Data:', hotelData);
-      
+
       const ownerEmail = hotelData.ownerEmail;
       const ownerName = hotelData.ownerName || 'Property Owner';
 
@@ -337,7 +350,7 @@ export const sendProviderCheckinNotification = onDocumentCreated(
       const formattedCheckOut = formatDate(checkinData.checkOutDate);
 
       // Send email to provider
-      const response = await postmarkClient.sendEmail({
+      const response = await getPostmarkClient().sendEmail({
         From: 'checkin@bookello.life',
         To: ownerEmail,
         Subject: `✅ New Check-in: ${checkinData.guestName}`,
@@ -423,7 +436,7 @@ export const sendProviderCheckinNotification = onDocumentCreated(
 // 4. BOOKELLO MARKETPLACE SERVICES EMAIL (updated - no delay blocking check-in)
 // ====================
 export const sendMarketplaceServicesEmail = onDocumentCreated(
-  'Checkins/{checkinId}',
+  { document: 'Checkins/{checkinId}', secrets: ["POSTMARK_API_TOKEN"], memory: "128Mi", maxInstances: 10 },
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
@@ -439,20 +452,20 @@ export const sendMarketplaceServicesEmail = onDocumentCreated(
       return;
     }
 
-   
+
     setTimeout(async () => {
       try {
         // Wait 5 minutes before sending services email
         console.log('⏰ Waiting 5 minutes before sending services email for:', checkinId);
         await new Promise(resolve => setTimeout(resolve, 5 * 60 * 1000));
-        
+
         // Re-fetch the document to ensure it still exists and email not already sent
         const updatedDoc = await snapshot.ref.get();
         if (!updatedDoc.exists) {
           console.log('Check-in document no longer exists:', checkinId);
           return;
         }
-        
+
         const updatedData = updatedDoc.data();
         if (updatedData.servicesEmailSent) {
           console.log('Services email already sent while waiting:', checkinId);
@@ -460,8 +473,8 @@ export const sendMarketplaceServicesEmail = onDocumentCreated(
         }
 
         console.log('📧 Sending delayed services email for:', checkinId);
-        
-        const response = await postmarkClient.sendEmail({
+
+        const response = await getPostmarkClient().sendEmail({
           From: 'checkin@bookello.life',
           To: updatedData.email,
           Subject: `Explore Services Near ${updatedData.hotel}`,
@@ -541,7 +554,7 @@ export const sendMarketplaceServicesEmail = onDocumentCreated(
             </html>
           `,
           TextBody: `Hello ${updatedData.guestName},\n\nWe hope you're settling in well at ${updatedData.hotel}.\n\nTo make your stay easier and more enjoyable, you can use Bookello Marketplace to book trusted services around you:\n\n🚗 Car rentals & airport transfers\n🗺️ Tours & experiences\n👨‍🍳 Private chefs & food services\n📸 Photographers & event services\n💆 Spa & wellness services\n🔧 Skilled workers & local services\n\nAll providers on Bookello are verified.\n\nExplore services: https://marketplace.bookello.life\n\nIf you need help or recommendations, your host will be happy to assist.\n\nBookello Marketplace Team`,
-          MessageStream: 'outbound'
+          MessageStream: 'emails'
         });
 
         console.log('✅ Delayed services email sent:', response.MessageID);
@@ -555,7 +568,7 @@ export const sendMarketplaceServicesEmail = onDocumentCreated(
 
       } catch (error) {
         console.error('❌ Error sending delayed marketplace services email:', error);
-        
+
         await db.collection('emailErrors').add({
           checkinId,
           type: 'marketplace_services_delayed',
@@ -576,7 +589,7 @@ export const sendMarketplaceServicesEmail = onDocumentCreated(
 // 5. CHECK-OUT THANK YOU EMAIL (sent to guest after check-out)
 // ====================
 
-export const sendCheckoutThankYouEmail = onCall(async (request) => {
+export const sendCheckoutThankYouEmail = onCall({ secrets: ["POSTMARK_API_TOKEN"], memory: "128Mi", maxInstances: 10 }, async (request) => {
   // This function is called manually by the admin when a guest checks out
   const { checkinId, guestEmail, guestName, hotelName, checkOutDate } = request.data;
 
@@ -585,7 +598,7 @@ export const sendCheckoutThankYouEmail = onCall(async (request) => {
   }
 
   try {
-    const response = await postmarkClient.sendEmail({
+    const response = await getPostmarkClient().sendEmail({
       From: 'checkout@bookello.life',
       To: guestEmail,
       Subject: `Thank You for Staying at ${hotelName}`,
@@ -616,12 +629,12 @@ export const sendCheckoutThankYouEmail = onCall(async (request) => {
             
             <p>We hope you had a wonderful stay at <strong>${hotelName}</strong>.</p>
             
-            <p>Your check-out on <strong>${new Date(checkOutDate).toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}</strong> has been processed.</p>
+            <p>Your check-out on <strong>${new Date(checkOutDate).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      })}</strong> has been processed.</p>
             
             <div class="review-section">
               <h3 style="color: #d97706; margin-top: 0;">Share Your Experience</h3>
@@ -661,14 +674,14 @@ export const sendCheckoutThankYouEmail = onCall(async (request) => {
       checkOutThankYouMessageId: response.MessageID
     });
 
-    return { 
-      success: true, 
+    return {
+      success: true,
       messageId: response.MessageID,
       message: 'Check-out thank you email sent successfully'
     };
   } catch (error) {
     console.error('❌ Error sending check-out thank you email:', error);
-    
+
     // Log error to Firestore for debugging
     await db.collection('emailErrors').add({
       checkinId,
@@ -676,7 +689,7 @@ export const sendCheckoutThankYouEmail = onCall(async (request) => {
       error: error.message,
       timestamp: new Date()
     });
-    
+
     throw new Error(`Failed to send check-out thank you email: ${error.message}`);
   }
 });
@@ -687,7 +700,7 @@ export const sendCheckoutThankYouEmail = onCall(async (request) => {
 // 8. ADMIN NOTIFICATION - When property registers
 // ====================
 export const sendAdminPropertyRegistrationNotification = onDocumentCreated(
-  'registrations/{registrationId}',
+  { document: 'registrations/{registrationId}', secrets: ["POSTMARK_API_TOKEN"], memory: "128Mi", maxInstances: 10 },
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
@@ -697,7 +710,7 @@ export const sendAdminPropertyRegistrationNotification = onDocumentCreated(
 
     const registrationData = snapshot.data();
     const registrationId = event.params.registrationId;
-    
+
     console.log('═══════════════════════════════════════════');
     console.log('🚀 ADMIN NOTIFICATION FUNCTION TRIGGERED');
     console.log('📄 Registration ID:', registrationId);
@@ -717,7 +730,7 @@ export const sendAdminPropertyRegistrationNotification = onDocumentCreated(
         .where('role', 'in', ['admin', 'super_admin'])
         .where('notificationPreferences.propertyRegistration', '==', true)
         .get();
-      
+
       const adminEmails = [];
       adminUsers.forEach(doc => {
         const userData = doc.data();
@@ -725,18 +738,18 @@ export const sendAdminPropertyRegistrationNotification = onDocumentCreated(
           adminEmails.push(userData.email);
         }
       });
-      
+
       // If no admin emails found, use a default admin email
       if (adminEmails.length === 0) {
         const defaultEmail = process.env.ADMIN_EMAIL || 'katabogamadallas@gmail.com';
         adminEmails.push(defaultEmail);
       }
-      
+
       console.log('📧 Sending notifications to:', adminEmails);
 
       const emailPromises = adminEmails.map(async (adminEmail) => {
         try {
-          const response = await postmarkClient.sendEmail({
+          const response = await getPostmarkClient().sendEmail({
             "From": "checkin@bookello.life",
             "To": adminEmail,
             "Subject": `📝 New Property Registration - ${registrationData.hotelName}`,
@@ -800,7 +813,7 @@ export const sendAdminPropertyRegistrationNotification = onDocumentCreated(
               </div>
             `,
             "TextBody": `New Property Registration - ${registrationData.hotelName}\n\nHello Admin,\n\nA new property has been registered and requires your review.\n\nProperty Details:\n- Property Name: ${registrationData.hotelName}\n- Owner: ${registrationData.ownerName}\n- Email: ${registrationData.ownerEmail}\n- Phone: ${registrationData.ownerPhone || 'N/A'}\n- Location: ${registrationData.location}\n- Rooms: ${registrationData.roomCount}\n\nAction Required: Please review this application in the admin dashboard.\n\nThis is an automated notification from Bookello Admin System.`,
-            "MessageStream": "transactional",
+            "MessageStream": "outbound",
             "Tag": "admin-notification"
           });
 
@@ -808,7 +821,7 @@ export const sendAdminPropertyRegistrationNotification = onDocumentCreated(
           return { email: adminEmail, messageId: response.MessageID };
         } catch (emailError) {
           console.error(`❌ Failed to send email to ${adminEmail}:`, emailError.message);
-          
+
           // Log error to Firestore
           await db.collection('emailErrors').add({
             registrationId,
@@ -818,38 +831,38 @@ export const sendAdminPropertyRegistrationNotification = onDocumentCreated(
             adminEmail: adminEmail,
             hotelName: registrationData.hotelName
           });
-          
+
           throw emailError;
         }
       });
-      
+
       const results = await Promise.allSettled(emailPromises);
-      
+
       const successfulEmails = results.filter(result => result.status === 'fulfilled');
       const failedEmails = results.filter(result => result.status === 'rejected');
-      
+
       console.log(`📊 Email Results: ${successfulEmails.length} succeeded, ${failedEmails.length} failed`);
-      
+
       // Update the registration document
-      await snapshot.ref.update({ 
+      await snapshot.ref.update({
         adminNotificationSent: true,
         adminNotificationSentAt: new Date(),
         adminEmailsNotified: adminEmails,
         adminNotificationSuccessCount: successfulEmails.length,
         adminNotificationFailedCount: failedEmails.length
       });
-      
+
       console.log('✅ Firestore updated with admin notification status');
       console.log('═══════════════════════════════════════════');
-      
-      return { 
-        success: true, 
+
+      return {
+        success: true,
         registrationId,
         totalAdmins: adminEmails.length,
         successfulCount: successfulEmails.length,
         failedCount: failedEmails.length
       };
-      
+
     } catch (error) {
       console.error('❌ Error in admin notification function:', error.message);
       console.error('Full error:', error);
@@ -870,7 +883,7 @@ export const sendAdminPropertyRegistrationNotification = onDocumentCreated(
 
 
 export const sendPropertyApprovedEmail = onDocumentUpdated(
-  'registrations/{registrationId}',
+  { document: 'registrations/{registrationId}', secrets: ["POSTMARK_API_TOKEN"], memory: "128Mi", maxInstances: 10 },
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
@@ -917,7 +930,7 @@ export const sendPropertyApprovedEmail = onDocumentUpdated(
     console.log('✅ SENDING EMAIL to:', after.ownerEmail);
 
     try {
-      const response = await postmarkClient.sendEmail({
+      const response = await getPostmarkClient().sendEmail({
         From: 'checkin@bookello.life',
         To: after.ownerEmail,
         Subject: `🎉 Your Property "${after.hotelName}" Has Been Approved!`,
@@ -1093,7 +1106,7 @@ The Bookello Team`,
 // 7. INVOICE CREATED EMAIL (Sent when admin creates invoice)
 // ====================
 export const sendInvoiceCreatedEmail = onDocumentCreated(
-  'invoices/{invoiceId}',
+  { document: 'invoices/{invoiceId}', secrets: ["POSTMARK_API_TOKEN"], memory: "128Mi", maxInstances: 10 },
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
@@ -1142,7 +1155,7 @@ export const sendInvoiceCreatedEmail = onDocumentCreated(
         day: 'numeric'
       });
 
-      const response = await postmarkClient.sendEmail({
+      const response = await getPostmarkClient().sendEmail({
         From: 'invoices@bookello.life',
         To: ownerEmail,
         Subject: `Invoice ${invoiceData.invoiceNumber} – Payment Required`,
@@ -1238,14 +1251,14 @@ export const sendInvoiceCreatedEmail = onDocumentCreated(
       return { success: true, messageId: response.MessageID };
     } catch (error) {
       console.error('❌ Error sending invoice created email:', error);
-      
+
       await db.collection('emailErrors').add({
         invoiceId,
         type: 'invoice_created',
         error: error.message,
         timestamp: new Date()
       });
-      
+
       throw new Error(`Failed to send invoice created email: ${error.message}`);
     }
   }
@@ -1255,7 +1268,7 @@ export const sendInvoiceCreatedEmail = onDocumentCreated(
 // 8. PAYMENT CONFIRMED EMAIL (Sent when admin verifies receipt)
 // ====================
 export const sendPaymentConfirmedEmail = onDocumentUpdated(
-  'invoices/{invoiceId}',
+  { document: 'invoices/{invoiceId}', secrets: ["POSTMARK_API_TOKEN"], memory: "128Mi", maxInstances: 10 },
   async (event) => {
     const beforeData = event.data.before.data();
     const afterData = event.data.after.data();
@@ -1295,7 +1308,7 @@ export const sendPaymentConfirmedEmail = onDocumentUpdated(
           minute: '2-digit'
         });
 
-        const response = await postmarkClient.sendEmail({
+        const response = await getPostmarkClient().sendEmail({
           From: 'payments@bookello.life',
           To: ownerEmail,
           Subject: `Payment Confirmed – Invoice ${afterData.invoiceNumber}`,
@@ -1391,18 +1404,18 @@ export const sendPaymentConfirmedEmail = onDocumentUpdated(
         return { success: true, messageId: response.MessageID };
       } catch (error) {
         console.error('❌ Error sending payment confirmed email:', error);
-        
+
         await db.collection('emailErrors').add({
           invoiceId,
           type: 'payment_confirmed',
           error: error.message,
           timestamp: new Date()
         });
-        
+
         throw new Error(`Failed to send payment confirmed email: ${error.message}`);
       }
     }
-    
+
     return null;
   }
 );
@@ -1411,14 +1424,14 @@ export const sendPaymentConfirmedEmail = onDocumentUpdated(
 // ====================
 // CUSTOM BULK EMAIL FUNCTION (Updated)
 // ====================
-export const sendCustomBulkEmail = onCall(async (request) => {
-  const { 
-    hotelId, 
-    propertyName, 
-    propertyWhatsApp, 
-    recipients, 
-    subject, 
-    body, 
+export const sendCustomBulkEmail = onCall({ secrets: ["POSTMARK_API_TOKEN"], memory: "128Mi", maxInstances: 10 }, async (request) => {
+  const {
+    hotelId,
+    propertyName,
+    propertyWhatsApp,
+    recipients,
+    subject,
+    body,
     template,
     customEmailAddresses = [] // Add this parameter
   } = request.data;
@@ -1430,7 +1443,7 @@ export const sendCustomBulkEmail = onCall(async (request) => {
   try {
     // Combine both recipients (from guests) and custom email addresses
     const allRecipients = [];
-    
+
     // Add guest recipients
     if (recipients && recipients.length > 0) {
       recipients.forEach(recipient => {
@@ -1441,7 +1454,7 @@ export const sendCustomBulkEmail = onCall(async (request) => {
         });
       });
     }
-    
+
     // Add custom email addresses
     if (customEmailAddresses && customEmailAddresses.length > 0) {
       customEmailAddresses.forEach(email => {
@@ -1454,7 +1467,7 @@ export const sendCustomBulkEmail = onCall(async (request) => {
         }
       });
     }
-    
+
     if (allRecipients.length === 0) {
       throw new Error('No recipients to send emails to');
     }
@@ -1464,14 +1477,24 @@ export const sendCustomBulkEmail = onCall(async (request) => {
         // Replace template variables with actual data
         let personalizedBody = body
           .replace(/{{GuestName}}/g, recipient.name)
+          .replace(/{{TeamManager}}/g, recipient.name)
+          .replace(/{{FanClubName}}/g, recipient.name)
+          .replace(/{{OrganizationName}}/g, recipient.name)
+          .replace(/{{TenantName}}/g, recipient.name)
+          .replace(/{{Name}}/g, recipient.name)
           .replace(/{{PropertyName}}/g, propertyName)
           .replace(/{{PropertyWhatsApp}}/g, propertyWhatsApp || '');
 
         const personalizedSubject = subject
           .replace(/{{PropertyName}}/g, propertyName)
-          .replace(/{{GuestName}}/g, recipient.name);
+          .replace(/{{GuestName}}/g, recipient.name)
+          .replace(/{{TeamManager}}/g, recipient.name)
+          .replace(/{{FanClubName}}/g, recipient.name)
+          .replace(/{{OrganizationName}}/g, recipient.name)
+          .replace(/{{TenantName}}/g, recipient.name)
+          .replace(/{{Name}}/g, recipient.name);
 
-        const response = await postmarkClient.sendEmail({
+        const response = await getPostmarkClient().sendEmail({
           From: 'checkin@bookello.life',
           To: recipient.email,
           Subject: personalizedSubject,
@@ -1501,7 +1524,7 @@ export const sendCustomBulkEmail = onCall(async (request) => {
             </html>
           `,
           TextBody: personalizedBody,
-          MessageStream: 'outbound',
+          MessageStream: 'emails',
           Tag: `custom-${template}`
         });
 
@@ -1518,9 +1541,9 @@ export const sendCustomBulkEmail = onCall(async (request) => {
           status: 'sent'
         });
 
-        return { 
-          email: recipient.email, 
-          success: true, 
+        return {
+          email: recipient.email,
+          success: true,
           messageId: response.MessageID,
           type: recipient.type
         };
@@ -1536,9 +1559,9 @@ export const sendCustomBulkEmail = onCall(async (request) => {
           template
         });
 
-        return { 
-          email: recipient.email, 
-          success: false, 
+        return {
+          email: recipient.email,
+          success: false,
           error: emailError.message,
           type: 'custom'
         };
@@ -1546,11 +1569,11 @@ export const sendCustomBulkEmail = onCall(async (request) => {
     });
 
     const results = await Promise.allSettled(emailPromises);
-    
+
     const successfulEmails = results
       .filter(r => r.status === 'fulfilled' && r.value.success)
       .map(r => r.value);
-    
+
     const failedEmails = results
       .filter(r => r.status === 'fulfilled' && !r.value.success)
       .map(r => r.value);
@@ -1580,7 +1603,7 @@ export const sendCustomBulkEmail = onCall(async (request) => {
 
   } catch (error) {
     console.error('Error sending bulk email:', error);
-    
+
     await db.collection('EmailErrors').add({
       hotelId,
       type: 'custom_bulk_email_batch',
@@ -1588,7 +1611,7 @@ export const sendCustomBulkEmail = onCall(async (request) => {
       timestamp: new Date(),
       template
     });
-    
+
     throw new Error(`Failed to send bulk email: ${error.message}`);
   }
 });
@@ -1596,7 +1619,7 @@ export const sendCustomBulkEmail = onCall(async (request) => {
 // ====================
 // TEST EMAIL FUNCTION
 // ====================
-export const sendTestEmail = onCall(async (request) => {
+export const sendTestEmail = onCall({ secrets: ["POSTMARK_API_TOKEN"], memory: "128Mi", maxInstances: 10 }, async (request) => {
   const { to, subject, body, template } = request.data;
 
   if (!to) {
@@ -1606,6 +1629,23 @@ export const sendTestEmail = onCall(async (request) => {
   try {
     const testBody = body
       .replace(/{{GuestName}}/g, 'Test Guest')
+      .replace(/{{TeamManager}}/g, 'Test Manager')
+      .replace(/{{FanClubName}}/g, 'Test Fan Club')
+      .replace(/{{OrganizationName}}/g, 'Test Organization')
+      .replace(/{{TeamName}}/g, 'Test Team')
+      .replace(/{{TeamOrEventName}}/g, 'Test Team/Event')
+      .replace(/{{MatchOrEvent}}/g, 'Test Match/Event')
+      .replace(/{{City}}/g, 'Test City')
+      .replace(/{{CityOrCountry}}/g, 'Test City/Country')
+      .replace(/{{TenantName}}/g, 'Test Tenant')
+      .replace(/{{Name}}/g, 'Test Attendee')
+      .replace(/{{EventName}}/g, 'Test Event')
+      .replace(/{{ReferralRewardAmount}}/g, '$50')
+      .replace(/{{LeasePeriod}}/g, '6 months')
+      .replace(/{{DueDate}}/g, '1st of next month')
+      .replace(/{{Amount}}/g, '$500')
+      .replace(/{{BankName}}/g, 'Test Bank')
+      .replace(/{{AccountNumber}}/g, '1234567890')
       .replace(/{{PropertyName}}/g, 'Test Property')
       .replace(/{{PropertyWhatsApp}}/g, '+1234567890')
       .replace(/{{AffectedArea}}/g, 'Test Area')
@@ -1616,10 +1656,26 @@ export const sendTestEmail = onCall(async (request) => {
       .replace(/{{SmokingPolicy}}/g, 'Non-smoking property')
       .replace(/{{VisitorPolicy}}/g, 'Visitors must register at reception');
 
-    const response = await postmarkClient.sendEmail({
+    const testSubject = subject
+      .replace(/{{GuestName}}/g, 'Test Guest')
+      .replace(/{{TeamManager}}/g, 'Test Manager')
+      .replace(/{{FanClubName}}/g, 'Test Fan Club')
+      .replace(/{{OrganizationName}}/g, 'Test Organization')
+      .replace(/{{TeamName}}/g, 'Test Team')
+      .replace(/{{TeamOrEventName}}/g, 'Test Team/Event')
+      .replace(/{{MatchOrEvent}}/g, 'Test Match/Event')
+      .replace(/{{City}}/g, 'Test City')
+      .replace(/{{CityOrCountry}}/g, 'Test City/Country')
+      .replace(/{{TenantName}}/g, 'Test Tenant')
+      .replace(/{{Name}}/g, 'Test Attendee')
+      .replace(/{{EventName}}/g, 'Test Event')
+      .replace(/{{DueDate}}/g, '1st of next month')
+      .replace(/{{PropertyName}}/g, 'Test Property');
+
+    const response = await getPostmarkClient().sendEmail({
       From: 'checkin@bookello.life',
       To: to,
-      Subject: subject,
+      Subject: testSubject,
       HtmlBody: `
         <!DOCTYPE html>
         <html>
@@ -1669,7 +1725,7 @@ export const sendTestEmail = onCall(async (request) => {
 // RESEND EMAIL FUNCTION
 // ====================
 
-export const resendEmail = onCall(async (request) => {
+export const resendEmail = onCall({ secrets: ["POSTMARK_API_TOKEN"], memory: "128Mi", maxInstances: 10 }, async (request) => {
   const { emailId } = request.data;
 
   if (!emailId) {
@@ -1678,18 +1734,18 @@ export const resendEmail = onCall(async (request) => {
 
   try {
     const emailDoc = await db.collection('EmailHistory').doc(emailId).get();
-    
+
     if (!emailDoc.exists) {
       throw new Error('Email not found');
     }
 
     const emailData = emailDoc.data();
-    
+
     // Get the original recipients from logs
     const logsQuery = await db.collection('EmailLogs')
       .where('emailHistoryId', '==', emailId)
       .get();
-    
+
     const recipients = logsQuery.docs.map(doc => ({
       email: doc.data().recipientEmail,
       name: doc.data().recipientName,
@@ -1741,15 +1797,15 @@ const sendEmailDirectly = async (data) => {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'X-Postmark-Server-Token': '417936d6-f508-4fcf-8060-faaf1654941f'
+        'X-Postmark-Server-Token': process.env.POSTMARK_API_TOKEN
       },
       body: JSON.stringify(data)
     })
-    
+
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${await response.text()}`)
     }
-    
+
     return await response.json()
   } catch (error) {
     console.error('Postmark API error:', error)
@@ -1758,5 +1814,252 @@ const sendEmailDirectly = async (data) => {
 }
 
 
+// ====================
+// 10. NEW TENANT WELCOME EMAIL
+// ====================
+export const sendNewTenantWelcomeEmail = onCall({ secrets: ["POSTMARK_API_TOKEN"], memory: "128Mi", maxInstances: 10 }, async (request) => {
+  const { checkinId, guestEmail, guestName, hotelName } = request.data;
+  if (!guestEmail || !guestName || !hotelName) {
+    throw new Error('Missing required parameters');
+  }
+
+  try {
+    const response = await getPostmarkClient().sendEmail({
+      From: 'checkin@bookello.life',
+      To: guestEmail,
+      Subject: `Welcome to ${hotelName}!`,
+      HtmlBody: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333; }
+            .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f8fafc; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e2e8f0; }
+            h2 { color: #059669; margin-top: 0; }
+            .welcome-msg { font-size: 20px; font-weight: bold; color: #059669; margin: 20px 0; text-align: center; }
+            .info-section { background: #ecfdf5; padding: 20px; border-radius: 8px; border: 1px solid #a7f3d0; margin: 20px 0; }
+            .signature { margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1 style="margin:0; font-size: 28px;">Welcome Home</h1>
+            <p style="margin:10px 0 0; opacity:0.9;">Bookello Tenant Onboarding</p>
+          </div>
+          
+          <div class="content">
+            <div class="welcome-msg">Welcome, ${guestName}!</div>
+            
+            <p>We are absolutely thrilled to have you as our newest tenant at <strong>${hotelName}</strong>.</p>
+            
+            <div class="info-section">
+              <h3 style="color: #059669; margin-top: 0;">Getting Settled</h3>
+              <p>Your comfort is our top priority. We hope you will find the property clean, safe, and ready for you to make yourself at home.</p>
+              <p>For any maintenance or property-related inquiries, please reach out to the management via the Bookello platform or contact details provided to you upon check-in.</p>
+            </div>
+            
+            <p>We hope you have a pleasant and comfortable stay with us!</p>
+            
+            <p style="font-size: 18px; text-align: center; margin: 30px 0; color: #059669;">
+              🎉 Thank you for choosing Bookello!
+            </p>
+            
+            <div class="signature">
+              <p style="margin-bottom:5px;">Warm regards,</p>
+              <p style="margin:0; font-weight:bold; color:#059669;">${hotelName} Management & The Bookello Team</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      TextBody: `Welcome, ${guestName}!\n\nWe are absolutely thrilled to have you as our newest tenant at ${hotelName}.\n\nYour comfort is our top priority. For any inquiries, please reach out to the management.\n\nThank you for choosing Bookello!\n\nWarm regards,\n${hotelName} Management & The Bookello Team`,
+      MessageStream: 'outbound'
+    });
+
+    console.log('✅ New tenant welcome email sent:', response.MessageID);
+    return { success: true, messageId: response.MessageID };
+
+  } catch (error) {
+    console.error('❌ Error sending new tenant welcome email:', error);
+    if (checkinId) {
+      await db.collection('emailErrors').add({
+        checkinId,
+        type: 'new_tenant_welcome',
+        error: error.message,
+        timestamp: new Date()
+      });
+    }
+    throw new Error(`Failed to send new tenant welcome email: ${error.message}`);
+  }
+});
 
 
+// ====================
+// 11. UTILITIES & HYGIENE INSTRUCTIONS EMAIL
+// ====================
+export const sendUtilitiesAndHygieneInstructions = onCall({ secrets: ["POSTMARK_API_TOKEN"], memory: "128Mi", maxInstances: 10 }, async (request) => {
+  const { checkinId, guestEmail, guestName, hotelName } = request.data;
+  if (!guestEmail || !guestName || !hotelName) {
+    throw new Error('Missing required parameters');
+  }
+
+  try {
+    const response = await getPostmarkClient().sendEmail({
+      From: 'checkin@bookello.life',
+      To: guestEmail,
+      Subject: `Utilities & Hygiene at ${hotelName}`,
+      HtmlBody: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333; }
+            .header { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f8fafc; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e2e8f0; }
+            h2 { color: #2563eb; margin-top: 0; }
+            .section { background: #eff6ff; padding: 20px; border-radius: 8px; border: 1px solid #bfdbfe; margin: 20px 0; }
+            .signature { margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1 style="margin:0; font-size: 28px;">Property Instructions</h1>
+            <p style="margin:10px 0 0; opacity:0.9;">Utilities & Hygiene Guidelines</p>
+          </div>
+          
+          <div class="content">
+            <h2>Hello, ${guestName}</h2>
+            
+            <p>To ensure a pleasant stay for everyone at <strong>${hotelName}</strong>, we ask all our tenants to observe the following utilities and hygiene guidelines.</p>
+            
+            <div class="section">
+              <h3 style="color: #2563eb; margin-top: 0;">⚡ Utilities</h3>
+              <ul style="padding-left: 20px;">
+                <li>Please switch off lights, fans, and appliances when leaving the property.</li>
+                <li>Ensure water taps are tightly closed after use to prevent water waste.</li>
+                <li>If you notice any leaks or electrical issues, kindly notify management immediately.</li>
+              </ul>
+            </div>
+            
+            <div class="section">
+              <h3 style="color: #2563eb; margin-top: 0;">✨ Hygiene & Cleanliness</h3>
+              <ul style="padding-left: 20px;">
+                <li>Dispose of trash in the designated bins and do not leave garbage in the hallways.</li>
+                <li>Keep common areas neat and respectful to other tenants.</li>
+                <li>Regular cleaning of your space will help minimize pests and maintain a fresh environment.</li>
+              </ul>
+            </div>
+            
+            <p>We appreciate your cooperation in keeping our community safe and clean.</p>
+            
+            <div class="signature">
+              <p style="margin-bottom:5px;">Thank you,</p>
+              <p style="margin:0; font-weight:bold; color:#2563eb;">${hotelName} Management</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      TextBody: `Hello, ${guestName}\n\nTo ensure a pleasant stay at ${hotelName}, please observe our Utilities & Hygiene guidelines.\n\nUtilities:\n- Switch off appliances when leaving.\n- Ensure taps are closed properly.\n- Report leaks immediately.\n\nHygiene & Cleanliness:\n- Dispose of trash in designated bins.\n- Keep common areas neat.\n- Regular cleaning helps minimize pests.\n\nThank you for your cooperation.\n\n${hotelName} Management`,
+      MessageStream: 'outbound'
+    });
+
+    console.log('✅ Utilities & Hygiene email sent:', response.MessageID);
+    return { success: true, messageId: response.MessageID };
+
+  } catch (error) {
+    console.error('❌ Error sending utilities/hygiene email:', error);
+    if (checkinId) {
+      await db.collection('emailErrors').add({
+        checkinId,
+        type: 'utilities_hygiene',
+        error: error.message,
+        timestamp: new Date()
+      });
+    }
+    throw new Error(`Failed to send utilities/hygiene email: ${error.message}`);
+  }
+});
+
+
+// ====================
+// 12. MOVE OUT INSTRUCTIONS EMAIL
+// ====================
+export const sendMoveOutInstructions = onCall({ secrets: ["POSTMARK_API_TOKEN"], memory: "128Mi", maxInstances: 10 }, async (request) => {
+  const { checkinId, guestEmail, guestName, hotelName } = request.data;
+  if (!guestEmail || !guestName || !hotelName) {
+    throw new Error('Missing required parameters');
+  }
+
+  try {
+    const response = await getPostmarkClient().sendEmail({
+      From: 'checkin@bookello.life',
+      To: guestEmail,
+      Subject: `Move Out Instructions for ${hotelName}`,
+      HtmlBody: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333; }
+            .header { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f8fafc; padding: 30px; border-radius: 0 0 10px 10px; border: 1px solid #e2e8f0; }
+            h2 { color: #dc2626; margin-top: 0; }
+            .section { background: #fef2f2; padding: 20px; border-radius: 8px; border: 1px solid #fecaca; margin: 20px 0; }
+            .signature { margin-top: 30px; padding-top: 20px; border-top: 2px solid #e2e8f0; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1 style="margin:0; font-size: 28px;">Move Out Notice</h1>
+            <p style="margin:10px 0 0; opacity:0.9;">Important Instructions for Departure</p>
+          </div>
+          
+          <div class="content">
+            <h2>Hello, ${guestName}</h2>
+            
+            <p>As your stay at <strong>${hotelName}</strong> comes to an end, please review our move-out procedure carefully to ensure a smooth transition.</p>
+            
+            <div class="section">
+              <h3 style="color: #dc2626; margin-top: 0;">🔑 Move Out Checklist</h3>
+              <ul style="padding-left: 20px;">
+                <li><strong>Keys:</strong> Please ensure all keys and access cards are returned to the management or placed in the designated drop-box.</li>
+                <li><strong>Belongings:</strong> Double-check drawers, closets, and bathrooms so nothing gets left behind.</li>
+                <li><strong>Garbage:</strong> Kindly empty your trash bins before departure.</li>
+                <li><strong>Utilities:</strong> Switch off lights and appliances, and ensure taps and windows are closed.</li>
+              </ul>
+            </div>
+            
+            <p>If a damage deposit was required, the property management will contact you regarding its return after the final inspection.</p>
+            
+            <p>We've enjoyed having you as part of our community and wish you the best on your onward journey!</p>
+            
+            <div class="signature">
+              <p style="margin-bottom:5px;">Safe travels,</p>
+              <p style="margin:0; font-weight:bold; color:#dc2626;">${hotelName} Management</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      TextBody: `Hello, ${guestName}\n\nFor your move-out at ${hotelName}, please review our checklist:\n\n- KEYS: Return all keys/access cards.\n- BELONGINGS: Double-check that nothing is left behind.\n- GARBAGE: Empty trash bins before departure.\n- UTILITIES: Switch off lights/appliances and close windows.\n\nProperty management will arrange deposit returns if applicable.\n\nSafe travels,\n${hotelName} Management`,
+      MessageStream: 'outbound'
+    });
+
+    console.log('✅ Move out instructions email sent:', response.MessageID);
+    return { success: true, messageId: response.MessageID };
+
+  } catch (error) {
+    console.error('❌ Error sending move out instructions email:', error);
+    if (checkinId) {
+      await db.collection('emailErrors').add({
+        checkinId,
+        type: 'move_out_instructions',
+        error: error.message,
+        timestamp: new Date()
+      });
+    }
+    throw new Error(`Failed to send move out instructions email: ${error.message}`);
+  }
+});
